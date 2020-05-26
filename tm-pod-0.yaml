@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tm-deploy-0
+  labels:
+    app: tm-deploy-0
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: tm-deploy-0
+  template:
+    metadata:
+      name: tm-deploy-0
+      labels:
+        service: tm-svc
+        app: tm-deploy-0
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - tm-deploy-0
+            topologyKey: "kubernetes.io/hostname"
+      restartPolicy: Always
+      imagePullSecrets:
+        - name: tmgc-registry-key
+      containers:
+      - name: tm-svc-0
+        image: <image location> 
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /usr/local/bin/tml-event-handler.sh
+              - preStop
+        ports:
+        - containerPort: 9080
+          name: agent-http
+        - containerPort: 9443
+          name: agent-https
+        - containerPort: 80
+          name: tm-http
+        - containerPort: 443
+          name: tm-https
+        resources: {}
+        env:
+          - name: TMG_RELEASE_VERSION
+            value: "5.2.0"
+          - name: TMG_REGISTRY_HOST
+            value: "cass-set-0-0.cass-svc-0.integration-mashery-rck-prod.svc.cluster.local"
+          - name: TMG_REGISTRY_HTTP_PORT
+            value: "8080"
+          - name: TMG_REGISTRY_HTTPS_PORT
+            value: "8443"
+          - name: TMG_CLUSTER_NAME
+            value: "Tibco Mashery Local Reference Cluster"
+          - name: TMG_CLUSTER_MODE
+            value: "tethered"
+          - name: TMG_ZONE_NAME
+            value: "local"
+          - name: TMG_ZONE_SERIAL
+            value: "0"
+          - name: TMG_ZONE_COUNT
+            value: "1"
+          - name: TMGC_TYPE
+            value: "trafficmanager"  
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          - name: AGENT_HTTP_PORT
+            value: "9080"
+          - name: AGENT_HTTPS_PORT
+            value: "9443"
+          - name: HTTP_PORT
+            value: "80"
+          - name: HTTPS_PORT
+            value: "443"
+        volumeMounts:
+        - name: tm-property-vol
+          mountPath: /opt/mashery/containeragent/resources/properties/tml_tm_properties.json
+          subPath: tml_tm_properties.json
+        - name: cluster-property-vol
+          mountPath: /opt/mashery/containeragent/resources/properties/tml_cluster_properties.json
+          subPath: tml_cluster_properties.json
+        - name: zones-property-vol
+          mountPath: /opt/mashery/containeragent/resources/properties/tml_zones_properties.json
+          subPath: tml_zones_properties.json
+        - name: tm-jks-vol
+          mountPath: /etc/mashery-server-ssl/tml-tm.jks
+          subPath: tml-tm.jks
+          readOnly: true
+      volumes:
+      - name: tm-property-vol
+        secret:
+          secretName: tm-property
+      - name: cluster-property-vol
+        secret:
+          secretName: cluster-property
+      - name: zones-property-vol
+        secret:
+          secretName: zones-property
+      - name: tm-jks-vol
+        secret:
+          secretName: tm-jks
+status: {}

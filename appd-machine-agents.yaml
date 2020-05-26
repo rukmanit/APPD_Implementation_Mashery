@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: machine-agent-daemonset
+#  namespace: machine-agent
+spec:
+  selector:
+    matchLabels:
+      name: appdynamics-machine-agent
+  template:
+    metadata:
+      labels:
+        name: appdynamics-machine-agent
+    spec:
+  #    nodeSelector:
+     #   node-role.kubernetes.io/compute: "true"
+      containers:
+      - env:
+          - name: MACHINE_AGENT_PROPERTIES
+            value: "-Dappdynamics.sim.enabled=false -Dappdynamics.docker.enabled=true"
+          - name: APPDYNAMICS_AGENT_TIER_NAME
+            value: "machineagent"
+          - name: APPDYNAMICS_AGENT_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+        name: machine-agent
+        image: <image path> 
+        securityContext:
+          allowPrivilegeEscalation: true
+          readOnlyRootFilesystem: false
+          #privileged: true
+        envFrom:
+        - configMapRef:
+            name: appd-config
+        - secretRef:
+            name: appd-secret
+        volumeMounts:
+        - mountPath: /hostroot
+          name: hostroot
+          readOnly: true
+        - mountPath: /var/run/docker.sock
+          name: docker-sock
+      restartPolicy: Always
+      #imagePullPolicy: Always
+      #serviceAccount: default
+      #serviceAccountName: default
+      volumes:
+      - name: hostroot
+        hostPath:
+          path: /
+      - name: docker-sock
+        hostPath:
+          path: /var/run/docker.sock
