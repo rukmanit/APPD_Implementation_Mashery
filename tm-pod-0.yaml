@@ -29,9 +29,21 @@ spec:
       restartPolicy: Always
       imagePullSecrets:
         - name: tmgc-registry-key
+      initContainers:
+      - command:
+        - cp
+        - -r
+        - /sharedFiles/AppServerAgent
+        - /mountPath/AppServerAgent
+        image:  <docker registery>/appd-java:4.5.14.4
+        imagePullPolicy: IfNotPresent
+        name: appd-java
+        volumeMounts:
+        - mountPath: /mountPath
+          name: appd-java
       containers:
       - name: tm-svc-0
-        image: <image location> 
+        image: <docker registery>/integration/tml-tm:v5.2.0.1_ws
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -53,7 +65,7 @@ spec:
           - name: TMG_RELEASE_VERSION
             value: "5.2.0"
           - name: TMG_REGISTRY_HOST
-            value: "cass-set-0-0.cass-svc-0.integration-mashery-rck-prod.svc.cluster.local"
+            value: "cass-set-0-0.cass-svc-0.integration-mashery-nonprod.svc.cluster.local"
           - name: TMG_REGISTRY_HTTP_PORT
             value: "8080"
           - name: TMG_REGISTRY_HTTPS_PORT
@@ -69,7 +81,7 @@ spec:
           - name: TMG_ZONE_COUNT
             value: "1"
           - name: TMGC_TYPE
-            value: "trafficmanager"  
+            value: "trafficmanager"
           - name: POD_IP
             valueFrom:
               fieldRef:
@@ -82,6 +94,17 @@ spec:
             value: "80"
           - name: HTTPS_PORT
             value: "443"
+          - name: APPDYNAMICS_AGENT_TIER_NAME
+            value: "trafficmanager"
+          - name: APPDYNAMICS_AGENT_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+        envFrom:
+        - configMapRef:
+            name: appd-config
+        - secretRef:
+            name: appd-secret
         volumeMounts:
         - name: tm-property-vol
           mountPath: /opt/mashery/containeragent/resources/properties/tml_tm_properties.json
@@ -96,6 +119,8 @@ spec:
           mountPath: /etc/mashery-server-ssl/tml-tm.jks
           subPath: tml-tm.jks
           readOnly: true
+        - mountPath: /opt/appdynamics
+          name: appd-java
       volumes:
       - name: tm-property-vol
         secret:
@@ -109,4 +134,7 @@ spec:
       - name: tm-jks-vol
         secret:
           secretName: tm-jks
+      - name: appd-java
+        emptyDir: {}
+
 status: {}
